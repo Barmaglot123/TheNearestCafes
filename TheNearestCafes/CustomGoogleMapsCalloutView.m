@@ -18,33 +18,33 @@
 }
 */
 -(void)loadPlaceDetailsByPlaceID: (NSString*) placeID{
+    dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
+        NSString * requestString = [NSString stringWithFormat:@"https://maps.googleapis.com/maps/api/place/details/json?placeid=%@&key=AIzaSyD7MT_lXEXT3Omj1LGGBhyI0xt6nPhNNlU",placeID];
     
-    NSString * requestString = [NSString stringWithFormat:@"https://maps.googleapis.com/maps/api/place/details/json?placeid=%@&key=AIzaSyD7MT_lXEXT3Omj1LGGBhyI0xt6nPhNNlU",placeID];
-    
-    UIActivityIndicatorView * indicator = [[UIActivityIndicatorView alloc]initWithActivityIndicatorStyle:UIActivityIndicatorViewStyleWhiteLarge];
-    [self addSubview: indicator];
-    [self bringSubviewToFront:indicator];
-    indicator.center = CGPointMake(75, 70);
-    indicator.hidesWhenStopped = YES;
-    dispatch_async(dispatch_get_main_queue(), ^{
-        [indicator startAnimating];
-    });
-    
-    AFHTTPSessionManager *manager = [AFHTTPSessionManager manager];
-    [manager GET:requestString parameters:nil progress:nil success:^(NSURLSessionTask *task, id responseObject) {
-        [indicator stopAnimating];
-        NSDictionary * resultsDictionary = [responseObject objectForKey:@"result"];
+        UIActivityIndicatorView * indicator = [[UIActivityIndicatorView alloc]initWithActivityIndicatorStyle:UIActivityIndicatorViewStyleWhiteLarge];
+        [self addSubview: indicator];
+        [self bringSubviewToFront:indicator];
+        indicator.center = CGPointMake(75, 70);
+        indicator.hidesWhenStopped = YES;
         
-        self.cafeName.text = [resultsDictionary objectForKey:@"name"];
-        self.cafeWorkTime.text = [[[resultsDictionary objectForKey:@"opening_hours"] objectForKey:@"weekday_text"] objectAtIndex:[self currentWeekDay]];
-        
- 
-    } failure:^(NSURLSessionTask *operation, NSError *error) {
+    
+        AFHTTPSessionManager *manager = [AFHTTPSessionManager manager];
+        [manager GET:requestString parameters:nil progress:nil success:^(NSURLSessionTask *task, id responseObject) {
+            [indicator stopAnimating];
+            NSDictionary * resultsDictionary = [responseObject objectForKey:@"result"];
+            
+            dispatch_async(dispatch_get_main_queue(), ^{
+                
+                self.cafeName.text = [resultsDictionary objectForKey:@"name"];
+                self.cafeWorkTime.text = [[[resultsDictionary objectForKey:@"opening_hours"] objectForKey:@"weekday_text"] objectAtIndex:[self currentWeekDay]];
+                
+            });
+
+        } failure:^(NSURLSessionTask *operation, NSError *error) {
         NSLog(@"Error: %@", error);
-    }];
-
-
-    
+        }];
+    });
+  
 }
 -(NSInteger)currentWeekDay{
     NSCalendar* currentCalendar = [NSCalendar currentCalendar];

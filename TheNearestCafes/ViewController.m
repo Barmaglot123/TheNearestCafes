@@ -11,11 +11,12 @@
 #import <CoreLocation/CoreLocation.h>
 #import "CustomGoogleMapsCalloutView.h"
 #import <AFNetworking.h>
+#import "MarkersDetailsEntity.h"
+#import "Markers.h"
+#import <Realm/Realm.h>
 
 @interface ViewController () <CLLocationManagerDelegate, GMSMapViewDelegate>
 @property (strong, nonatomic) GMSMapView * mapView;
-@property (strong, nonatomic) NSMutableArray * markerArray;
-@property (strong, nonatomic) NSMutableArray * placeIDArray;
 
 @end
 
@@ -23,16 +24,23 @@
 
 - (void)viewDidLoad {
     [super viewDidLoad];
-    self.markerArray = [NSMutableArray new];
-    self.placeIDArray = [NSMutableArray new];
+    [[NSNotificationCenter defaultCenter] addObserver:self
+                                             selector:@selector(configureMarkersOnMap)
+                                                 name:@"DataUploaded"
+                                               object:nil];
+
     CLLocationManager * locationManager = [[CLLocationManager alloc] init];
     locationManager.delegate = self;
+    
     GMSCameraPosition *camera = [GMSCameraPosition cameraWithLatitude:locationManager.location.coordinate.latitude longitude:locationManager.location.coordinate.longitude zoom:12];
     self.mapView = [GMSMapView mapWithFrame:CGRectZero camera:camera];
     self.mapView.myLocationEnabled = YES;
     self.mapView.delegate = self;
     self.view = self.mapView;
-    [self loadCafeMarker];
+//    [self.markers loadCafeMarkersByLatitude:locationManager.location.coordinate.latitude andLongtitude:locationManager.location.coordinate.longitude];
+//    [self loadCafeMarker];
+    Markers * markers = [[Markers alloc]init];
+    [markers loadCafeMarkersByLatitude:locationManager.location.coordinate.latitude andLongtitude:locationManager.location.coordinate.longitude];
 
 }
 
@@ -41,45 +49,13 @@
     [super didReceiveMemoryWarning];
 }
 
--(void)loadCafeMarker{
-    CLLocationManager * locationManager = [[CLLocationManager alloc] init];
-    locationManager.delegate = self;
-    
-    
-     NSString * requestString = [NSString stringWithFormat:@"https://maps.googleapis.com/maps/api/place/nearbysearch/json?location=%f,%f&radius=4500&type=restaurant&key=AIzaSyD7MT_lXEXT3Omj1LGGBhyI0xt6nPhNNlU",locationManager.location.coordinate.latitude,locationManager.location.coordinate.longitude];
-    NSURL * url = [NSURL URLWithString:requestString];
-    NSData * data  = [NSData dataWithContentsOfURL:url];
-    NSMutableDictionary * parsedJsonData = [NSJSONSerialization JSONObjectWithData:data options:NSJSONReadingMutableContainers error:nil];
-    NSDictionary * resultsOfAllData = [parsedJsonData objectForKey:@"results"];
 
-    for (NSDictionary * currentPlace in resultsOfAllData){
-        
-        
-        NSString * lat = [NSString stringWithFormat:@"%@",[[[currentPlace objectForKey:@"geometry"]
-                                                                             objectForKey:@"location"]
-                                                                             objectForKey:@"lat"]];
-        
-        NSString * lng = [NSString stringWithFormat:@"%@",[[[currentPlace objectForKey:@"geometry"]
-                                                                          objectForKey:@"location"]
-                                                                          objectForKey:@"lng"]];
-        [self.placeIDArray addObject:[NSString stringWithFormat:@"%@",[currentPlace objectForKey:@"place_id"]]];
-        [self configureMarkerOfLatitude:[lat floatValue] andLongtitude:[lng floatValue]];
-        NSLog(@" lat %@ lng %@ ", lat, lng);
-}
-    
-    
-
-    
-}
--(void)configureMarkerOfLatitude: (CGFloat)latitude andLongtitude: (CGFloat)longtitude{
-    GMSMarker *marker = [[GMSMarker alloc] init];
-    
-    marker.position = CLLocationCoordinate2DMake(latitude, longtitude);
-    marker.map = self.mapView;
-    [self.markerArray addObject:marker];
-    
-
-    
+-(void)configureMarkersOnMap{
+    for (MarkersDetailsEntity * currentMarker in [MarkersDetailsEntity allObjects] ){
+        GMSMarker *marker = [[GMSMarker alloc] init];
+        marker.position = CLLocationCoordinate2DMake([currentMarker.latitude floatValue], [currentMarker.longtitude floatValue]);
+        marker.map = self.mapView;
+    }
 }
 
 # pragma mark GMSMapViewDelegate
@@ -87,8 +63,12 @@
 
     CustomGoogleMapsCalloutView * callout = [[[NSBundle mainBundle] loadNibNamed:@"CustomCalloutView" owner:self options:nil] objectAtIndex:0];
     marker.tracksInfoWindowChanges = YES;
-    [callout loadPlaceDetailsByPlaceID:[self.placeIDArray objectAtIndex:
-                                        [self.markerArray indexOfObject:marker]]];
+    for (MarkersDetailsEntity * currentMarker in [MarkersDetailsEntity allObjects]){
+    
+        if ([currentMarker.latitude floatValue] == marker.layer.latitude && [currentMarker.longtitude floatValue] == marker.layer.longitude){
+            [callout loadPlaceDetailsByPlaceID:currentMarker.placeID];
+        }
+    }
 
     return callout;
 }
